@@ -4,8 +4,6 @@ from io import BytesIO  # Этот класс поможет нам сделат
 import requests
 from PIL import Image
 
-import math
-
 # Пусть наше приложение предполагает запуск:
 # python search.py Москва, ул. Ак. Королева, 12
 # Тогда запрос к геокодеру формируется следующим образом:
@@ -38,7 +36,8 @@ search_params = {
     "text": "аптека",
     "lang": "ru_RU",
     "ll": ','.join(toponym_coodrinates.split()),
-    "type": "biz"
+    "type": "biz",
+    'results': '10'
 }
 
 response = requests.get(search_api_server, params=search_params)
@@ -48,37 +47,31 @@ if not response:
     pass
 
 json_response = response.json()
-pharmacy_coordinates = json_response['features'][0]['geometry']['coordinates']
 
-address = json_response['features'][0]['properties']['CompanyMetaData']['address']
-
-name = json_response['features'][0]['properties']['CompanyMetaData']['name']
-
-work_hours = json_response['features'][0]['properties']['CompanyMetaData']['Hours']['text']
-
-x1, y1, x2, y2 = *pharmacy_coordinates, *toponym_coodrinates.split()
-x2, y2 = float(x2), float(y2)
-
-distance1 = x2 - x1
-distance2 = y2 - y1
-
-distance1 *= 111
-distance2 = distance2 * 111 * math.cos((x2 + x1 / 2))
-distance = (distance1 ** 2 + distance2 ** 2) ** 0.5
-
-if distance >= 1:
-    distance = f'{distance // 1} км, {(distance % 1 * 1000) // 1} м'
+pt = []
+for i in range(10):
+    coord = json_response['features'][i]['geometry']['coordinates']
     
-else:
-    distance = f'{(distance % 1 * 1000) // 1} м'
-
-print(address, name, work_hours, distance, sep='\n')
+    try:
+        a = json_response['features'][i]['properties']['CompanyMetaData']['Hours']
+        
+        try:
+            if json_response['features'][i]['properties']['CompanyMetaData']['Hours']['Availabilities'][0]['TwentyFourHours']:
+                color = 'gn'
+            
+        except Exception:
+            color = 'bl'
+    
+    except Exception:
+        color = 'gr'
+        
+    pt.append(f'{",".join([str(i) for i in coord])},pm2{color}m')
 
 apikey = "f3a0fe3a-b07e-4840-a1da-06f18b2ddf13"
 
 # Собираем параметры для запроса к StaticMapsAPI:
 map_params = {
-    "pt": f'{",".join([str(i) for i in pharmacy_coordinates])},flag~{",".join(toponym_coodrinates.split())},ya_ru',
+    "pt": '~'.join(pt),
     "apikey": apikey,
     "l": "map"
 }
